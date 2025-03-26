@@ -34,7 +34,8 @@ defmodule Ash.Actions.Update.Bulk do
             get_read_action(query.resource, action, opts).name,
             %{},
             actor: opts[:actor],
-            tenant: opts[:tenant]
+            tenant: opts[:tenant],
+            context: %{for_bulk_update_or_destroy?: true}
           )
 
         {query, opts}
@@ -44,9 +45,6 @@ defmodule Ash.Actions.Update.Bulk do
 
     fully_atomic_changeset =
       cond do
-        !Enum.empty?(query.before_action) ->
-          {:not_atomic, "cannot atomically update a query if it has `before_action` hooks"}
-
         not_atomic_reason ->
           {:not_atomic, not_atomic_reason}
 
@@ -55,6 +53,12 @@ defmodule Ash.Actions.Update.Bulk do
 
         query.action.manual ->
           {:not_atomic, "Manual read actions cannot be updated atomically"}
+
+        !Enum.empty?(query.before_action) ->
+          {:not_atomic, "cannot atomically update a query if it has `before_action` hooks"}
+
+        !Enum.empty?(query.after_action) ->
+          {:not_atomic, "cannot atomically update a query if it has `after_action` hooks"}
 
         changeset = opts[:atomic_changeset] ->
           changeset
@@ -1223,7 +1227,8 @@ defmodule Ash.Actions.Update.Bulk do
           authorize?: false,
           context: atomic_changeset.context,
           tenant: atomic_changeset.tenant,
-          tracer: opts[:tracer]
+          tracer: opts[:tracer],
+          context: %{for_bulk_update_or_destroy?: true}
         )
         |> Ash.Query.set_context(%{private: %{internal?: true}})
         |> Ash.Query.filter(^pkeys)
